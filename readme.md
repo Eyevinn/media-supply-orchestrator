@@ -1,37 +1,143 @@
-<h1 align="center">
-  Project Name or Logo
-</h1>
+[![Slack](https://slack.osaas.io/badge.svg)](https://slack.osaas.io)
 
-<div align="center">
-  project name - quick salespitch why this is awesome. 
-  <br />
-  <br />
-  :book: <b><a href="https://eyevinn.github.io/{{repo-name}}/">Read the documentation (github pages)</a></b> :eyes:
-  <br />
-</div>
+# Eyevinn Open Media Supply Chain
 
-<div align="center">
-<br />
+![Solution Overview](./open_media_supply.png)
 
-[![npm](https://img.shields.io/npm/v/@eyevinn/{{repo-name}}?style=flat-square)](https://www.npmjs.com/package/@eyevinn/{{repo-name}})
-[![github release](https://img.shields.io/github/v/release/Eyevinn/{{repo-name}}?style=flat-square)](https://github.com/Eyevinn/{{repo-name}}/releases)
-[![license](https://img.shields.io/github/license/eyevinn/{{repo-name}}.svg?style=flat-square)](LICENSE)
+A solution for content preparation for Video On Demand (VOD) streaming fully based on open web services in [Eyevinn Open Source Cloud](https://www.osaas.io). An open web service is based on open source giving you the option to host this entire solution in your own premises or cloud infrastructure. This solution features:
 
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/eyevinn/{{repo-name}}/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
-[![made with hearth by Eyevinn](https://img.shields.io/badge/made%20with%20%E2%99%A5%20by-Eyevinn-59cbe8.svg?style=flat-square)](https://github.com/eyevinn)
-[![Slack](http://slack.osaas.io/badge.svg)](http://slack.osaas.io/)
+- Automatic generation of subtitles.
+- Transcoding and creating VOD package for streaming in HLS and MPEG-DASH.
+- Automated process triggered when a file is uploaded to a bucket and result stored in another bucket.
 
-</div>
-
-<!-- Add a description of the project here -->
+This repository contains the media supply chain orchestrator that will drive this process.
 
 ## Requirements
 
-<!--Add any external project dependencies such as node.js version etc here -->
+- An [Eyevinn Open Source Cloud account](https://app.osaas.io) on Professional plan.
+- [NodeJS 20+ installed](https://nodejs.org/en/download).
+- [Minio CLI installed](https://min.io/docs/minio/linux/reference/minio-mc.html).
+- An OpenAI account and [OpenAI API access](https://platform.openai.com/docs/overview) (for automatic subtitling).
 
 ## Installation / Usage
 
-<!--Add clear instructions on how to use the project here -->
+We will setup and use the following open web services. Make sure you have activated these services or have remaining services available on your subscription plan:
+
+- [MinIO Server](https://docs.osaas.io/osaas.wiki/Service%3A-MinIO.html)
+- [SVT Encore](https://docs.osaas.io/osaas.wiki/Service%3A-SVT-Encore.html)
+- [Subtitle Generator](https://docs.osaas.io/osaas.wiki/Service%3A-Subtitle-Generator.html)
+- [Shaka Packager](https://docs.osaas.io/osaas.wiki/Service%3A-Shaka-Packager.html)
+
+For creation of the instances we will use the Open Source Cloud CLI in this example. If you don't want to use the CLI you can use the Open Source Cloud web console instead.
+
+### Store OSC Access Token in your environment
+
+Obtain your OSC Access Token (your personal access token) from the web console in Settings/API page. Copy this value to the clipboard and save it in an environment variable called `OSC_ACCESS_TOKEN`.
+
+```bash
+% export OSC_ACCESS_TOKEN=<personal-access-token>
+```
+
+### Create MinIO server
+
+Navigate to the [MinIO service](https://app.osaas.io/dashboard/service/minio-minio) in Open Source Cloud web console and create a service secret called `rootpassword` storing the password for the MinIO root user. It needs to be a mix of lowercase and uppercase and contain a number.
+
+Create a MinIO server for the storage buckets we will use.
+
+```bash
+% npx -y @osaas/cli create minio-minio mediasupply \
+  -o RootUser=root \
+  -o RootPassword="{{secrets.rootpassword}}"
+Instance created:
+{
+  name: 'mediasupply',
+  url: '<minio-server-url>',
+  ...
+}
+```
+
+The URL to the MinIO server (`<minio-server-url>`) is the S3 Endpoint that will be referred to later in this guide. Create an alias for convience using the MinIO client.
+
+```bash
+%  mc alias set mediasupply <minio-server-url> root <minio-root-password>
+```
+
+Now we can create three buckets we will need.
+
+```bash
+% mc mb mediasupply/input
+% mc mb mediasupply/abrsubs
+% mc mb mediasupply/origin
+```
+
+### Create Subtitle Generator
+
+Navigate to the [Subtitle Generator service](https://app.osaas.io/dashboard/service/eyevinn-auto-subtitles) in Open Source Cloud web console and create the following secrets:
+
+- `openaikey` - Your OpenAI API key
+- `miniopwd` - `<minio-root-password>`
+
+Create a Subtitle Generator instance using the Open Source Cloud CLI (or the web console).
+
+```bash
+% npx -y @osaas/cli create eyevinn-auto-subtitles mediasupply \
+  -o openaikey="{{secrets.openaikey}}" \
+  -o awsAccessKeyId=root \
+  -o awsSecretAccessKey="{{secrets.miniopwd}}" \
+  -o s3Endpoint="<minio-server-url>"
+Instance created:
+{
+  name: 'mediasupply',
+  url: '<subtitle-generator-url>',
+  ...
+}  
+```
+
+### Create SVT Encore transcoder queue
+
+Navigate to the [SVT Encore service](https://app.osaas.io/dashboard/service/encore) in Open Source web console and create the following secret:
+
+- `miniopwd` - `<minio-root-password>`
+
+Create an SVT Encore transcoding queue.
+
+```bash
+% npx -y @osaas/cli create encore mediasupply \
+  -o s3AccessKeyId=root \
+  -o s3SecretAccessKey="{{secrets.miniopwd}}" \
+  -o s3Endpoint="<minio-server-url>"
+Instance created:
+{
+  name: 'mediasupply',
+  url: '<svtencore-url>',
+  ...
+}
+```
+
+### Configure Shaka Packager
+
+Navigate to the [Shaka Packager service](https://app.osaas.io/dashboard/service/eyevinn-shaka-packager-s3) in web console and create the following secret:
+
+- `miniopwd` - `<minio-root-password>`
+
+### Run the Media Supply Chain Orchestrator
+
+Now we can start the Media Supply Chain orchestrator that will automate this supply chain process. Start by storing some environment variables pointing to the service instances we created above.
+
+```bash
+% export OSC_ACCESS_TOKEN=<personal-access-token>
+% export S3_ACCESS_KEY_ID=root
+% export S3_SECRET_ACCESS_KEY="{{secrets.miniopwd}}
+% export S3_ENDPOINT_URL=<minio-server-url>
+% export ENCORE_URL=<svtencore-url>
+% export SUBTITLE_GENERATOR_URL=<subtitle-generator-url>
+```
+
+Then start the orchestrator.
+
+```
+% npm start
+```
 
 ## Development
 
