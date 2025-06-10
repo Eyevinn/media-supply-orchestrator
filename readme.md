@@ -92,7 +92,7 @@ Instance created:
   name: 'mediasupply',
   url: '<subtitle-generator-url>',
   ...
-}  
+}
 ```
 
 ### Create SVT Encore transcoder queue
