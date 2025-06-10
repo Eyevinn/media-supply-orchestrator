@@ -135,6 +135,14 @@ Now we can start the Media Supply Chain orchestrator that will automate this sup
 % export SUBTITLE_GENERATOR_URL=<subtitle-generator-url>
 ```
 
+For the webhook and callbacks we need to configure the URL where this orchestrator can be reached.
+
+```bash
+% export PUBLIC_BASE_URL=<media-orchestrator-public-base-url>
+```
+
+For running this orchestrator on your local computer you need to use a tool like [ngrok](https://dashboard.ngrok.com/get-started/setup/macos) to create a tunnel to your local computer.
+
 Then start the orchestrator.
 
 ```

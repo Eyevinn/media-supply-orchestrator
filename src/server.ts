@@ -31,7 +31,12 @@ if (!process.env.ENCORE_URL) {
   throw new Error('Please set ENCORE_URL environment variable');
 }
 
+if (!process.env.PUBLIC_BASE_URL) {
+  throw new Error('Please set PUBLIC_BASE_URL environment variable');
+}
+
 orchestrator({
+  publicBaseUrl: process.env.PUBLIC_BASE_URL,
   inputBucket: INPUT_BUCKET,
   abrsubsBucket: ABRSUBS_BUCKET,
   encoreUrl: process.env.ENCORE_URL,

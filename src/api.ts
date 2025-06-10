@@ -5,6 +5,7 @@ import swaggerUI from '@fastify/swagger-ui';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { Static, Type } from '@sinclair/typebox';
 import { FastifyPluginCallback } from 'fastify';
+import { encoreCallbackApi } from './orchestrator/encoreCallback';
 
 const HelloWorld = Type.String({
   description: 'The magical words!'
@@ -64,6 +65,17 @@ export default (opts: ApiOptions) => {
 
   api.register(healthcheck, { title: opts.title });
   // register other API routes here
-
+  api.register(encoreCallbackApi, {
+    onCallback: (jobProgress) => {
+      console.log(
+        `Yes, I also received callback from Encore for job ${JSON.stringify(
+          jobProgress
+        )}`
+      );
+    },
+    onSuccess: (jobProgress) => {
+      console.debug('Job is successful');
+    }
+  });
   return api;
 };

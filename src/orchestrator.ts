@@ -4,6 +4,7 @@ import { createUniqueSlug } from './util';
 import { transcode } from '@osaas/client-transcode';
 
 export interface OrchestratorOptions {
+  publicBaseUrl: string;
   inputBucket: string;
   abrsubsBucket: string;
   encoreUrl: string;
@@ -28,6 +29,7 @@ export default (opts: OrchestratorOptions) => {
       {
         encoreInstanceName: 'mediasupply',
         profile: 'program',
+        callBackUrl: new URL('/encoreCallback', opts.publicBaseUrl),
         externalId,
         inputUrl: new URL(
           `s3://${record.s3.bucket.name}/${record.s3.object.key}`
