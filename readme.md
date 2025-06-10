@@ -1,6 +1,8 @@
 [![Slack](https://slack.osaas.io/badge.svg)](https://slack.osaas.io)
 
-# Eyevinn Open Media Supply Chain
+# Eyevinn Open Media Supply Orchestrator
+
+> _Part of Eyevinn Open Media Supply Chain Solution_
 
 ![Solution Overview](./open_media_supply.png)
 
