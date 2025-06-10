@@ -143,6 +143,12 @@ For the webhook and callbacks we need to configure the URL where this orchestrat
 
 For running this orchestrator on your local computer you need to use a tool like [ngrok](https://dashboard.ngrok.com/get-started/setup/macos) to create a tunnel to your local computer.
 
+```bash
+% ngrok http http://localhost:8000
+```
+
+Copy the forward URL and set that as `PUBLIC_BASE_URL` environment variable.
+
 Then start the orchestrator.
 
 ```
