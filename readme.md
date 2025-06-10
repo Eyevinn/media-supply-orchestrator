@@ -129,7 +129,7 @@ Now we can start the Media Supply Chain orchestrator that will automate this sup
 ```bash
 % export OSC_ACCESS_TOKEN=<personal-access-token>
 % export S3_ACCESS_KEY_ID=root
-% export S3_SECRET_ACCESS_KEY="{{secrets.miniopwd}}
+% export S3_SECRET_ACCESS_KEY="{{secrets.miniopwd}}"
 % export S3_ENDPOINT_URL=<minio-server-url>
 % export ENCORE_URL=<svtencore-url>
 % export SUBTITLE_GENERATOR_URL=<subtitle-generator-url>
