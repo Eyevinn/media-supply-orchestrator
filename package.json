@@ -1,6 +1,6 @@
 {
   "name": "media-supply-orchestrator",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Media Supply Chain Orchestrator for open web service in Eyevinn Open Source Cloud",
   "scripts": {
     "test": "jest",
