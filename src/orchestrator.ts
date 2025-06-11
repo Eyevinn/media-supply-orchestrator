@@ -5,7 +5,10 @@ import { getTranscodeJob } from '@osaas/client-transcode';
 import { FastifyInstance } from 'fastify';
 import { encoreCallbackApi } from './orchestrator/callbacks/encore';
 import { EncoreJob } from './orchestrator/encore';
-import { WorkOrderManager } from './orchestrator/workorder';
+import {
+  VOD_PACKAGING_TASKS,
+  WorkOrderManager
+} from './orchestrator/workorder';
 import { startAbrTranscodeTask } from './orchestrator/tasks/abr_transcode';
 import {
   startVodPackageTask,
@@ -13,6 +16,7 @@ import {
 } from './orchestrator/tasks/vod_package';
 import { startTranscribeTask } from './orchestrator/tasks/transcribe';
 import { transcribeCallbackApi } from './orchestrator/callbacks/transcribe';
+import { startCleanupTask } from './orchestrator/tasks/cleanup';
 
 export interface OrchestratorOptions {
   publicBaseUrl: string;
@@ -55,6 +59,8 @@ export default (opts: OrchestratorOptions) => {
                 await startVodPackageTask(ctx, task, workOrder, opts);
               } else if (task.type === 'TRANSCRIBE') {
                 await startTranscribeTask(ctx, task, workOrder, opts);
+              } else if (task.type === 'CLEANUP') {
+                await startCleanupTask(ctx, task, workOrder, opts);
               }
             } else if (task.status === 'IN_PROGRESS') {
               if (task.type === 'VOD_PACKAGE') {
@@ -81,7 +87,8 @@ export default (opts: OrchestratorOptions) => {
     const externalId = createUniqueSlug(filename);
     await workOrderManager.createWorkOrder(
       externalId,
-      new URL(`s3://${record.s3.bucket.name}/${record.s3.object.key}`)
+      new URL(`s3://${record.s3.bucket.name}/${record.s3.object.key}`),
+      VOD_PACKAGING_TASKS
     );
   };
 
