@@ -157,7 +157,7 @@ Navigate to the `<app-config-url>` and create the following configuration variab
 
 ```
 S3_ACCESS_KEY_ID=root
-S3_SECRET_ACCESS_KEY="{{secrets.miniopwd}}"
+S3_SECRET_ACCESS_KEY=<minio-root-password>
 S3_ENDPOINT_URL=<minio-server-url>
 ENCORE_URL=<svtencore-url>
 SUBTITLE_GENERATOR_URL=<subtitle-generator-url>
@@ -196,7 +196,7 @@ Setup the open web services as described above (except for the orchestrator) and
 ```bash
 % export OSC_ACCESS_TOKEN=<personal-access-token>
 % export S3_ACCESS_KEY_ID=root
-% export S3_SECRET_ACCESS_KEY="{{secrets.miniopwd}}"
+% export S3_SECRET_ACCESS_KEY=<minio-root-password>
 % export S3_ENDPOINT_URL=<minio-server-url>
 % export ENCORE_URL=<svtencore-url>
 % export SUBTITLE_GENERATOR_URL=<subtitle-generator-url>
