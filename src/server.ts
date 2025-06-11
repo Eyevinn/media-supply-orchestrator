@@ -43,10 +43,12 @@ orchestrator({
   publicBaseUrl: PUBLIC_BASE_URL,
   inputBucket: INPUT_BUCKET,
   abrsubsBucket: ABRSUBS_BUCKET,
+  outputBucket: OUTPUT_BUCKET,
   encoreUrl: process.env.ENCORE_URL,
   s3EndpointUrl: process.env.S3_ENDPOINT_URL,
   s3AccessKeyId: process.env.S3_ACCESS_KEY_ID,
-  s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY
+  s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  api: server
 });
 
 server.listen({ port: PORT, host: '0.0.0.0' }, (err, address) => {
