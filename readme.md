@@ -191,7 +191,7 @@ Download the example file [VINN.mp4](https://testcontent.eyevinn.technology/mp4/
 
 ## Development
 
-Setup the open web services as described above and create the following environment variables pointing to the Open Source Cloud resources created.
+Setup the open web services as described above (except for the orchestrator) and create the following environment variables pointing to the Open Source Cloud resources created.
 
 ```bash
 % export OSC_ACCESS_TOKEN=<personal-access-token>
@@ -219,7 +219,7 @@ Create a tunnel using ngrok.
 Copy the forward URL returned by ngrok and set that as `PUBLIC_BASE_URL` environment variable.
 
 ```bash
-% export PUBLIC_BASE_URL=<media-orchestrator-public-base-url>
+% export PUBLIC_BASE_URL=<ngrok-url>
 ```
 
 Then start the orchestrator.

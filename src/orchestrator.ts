@@ -1,16 +1,25 @@
-import { Context } from '@osaas/client-core';
+import { Context, createJob } from '@osaas/client-core';
 import { setupListener } from './storage/minio';
 import { createUniqueSlug } from './util';
-import { transcode } from '@osaas/client-transcode';
+import { getTranscodeJob, transcode } from '@osaas/client-transcode';
+import { FastifyInstance } from 'fastify';
+import { encoreCallbackApi } from './orchestrator/encoreCallback';
+import {
+  DEFAULT_STREAM_KEY_TEMPLATES,
+  EncoreJob,
+  parseInputsFromEncoreJob
+} from './orchestrator/encore';
 
 export interface OrchestratorOptions {
   publicBaseUrl: string;
   inputBucket: string;
   abrsubsBucket: string;
+  outputBucket: string;
   encoreUrl: string;
   s3EndpointUrl: string;
   s3AccessKeyId: string;
   s3SecretAccessKey: string;
+  api: FastifyInstance;
 }
 
 export default (opts: OrchestratorOptions) => {
@@ -41,8 +50,59 @@ export default (opts: OrchestratorOptions) => {
         bearerToken: encoreServiceAccessToken
       }
     );
-    console.log(job);
+    console.debug(job);
   };
+
+  const handleEncoreSuccess = async (jobProgress: any): Promise<void> => {
+    console.debug(`Encore job successful: ${JSON.stringify(jobProgress)}`);
+    const ctx = new Context();
+    const job = (await getTranscodeJob(ctx, 'mediasupply', jobProgress.jobId, {
+      endpointUrl: new URL(opts.encoreUrl),
+      bearerToken: await ctx.getServiceAccessToken('encore')
+    })) as EncoreJob;
+    if (!job.externalId) {
+      throw new Error(`Encore job ${jobProgress.jobId} has no externalId`);
+    }
+    const inputs = parseInputsFromEncoreJob(job, DEFAULT_STREAM_KEY_TEMPLATES);
+    console.debug(inputs);
+    const shakaArgs =
+      `-s s3://${opts.abrsubsBucket}/${job.externalId} -d s3://${opts.outputBucket}/${job.externalId}/ ` +
+      inputs
+        .map((input) => {
+          const TYPE_MAP: Record<string, string> = {
+            video: 'v',
+            audio: 'a',
+            text: 't'
+          };
+          const basename = new URL(input.filename).pathname.split('/').pop();
+          if (!basename) {
+            throw new Error(
+              `Could not extract basename from ${input.filename}`
+            );
+          }
+          return `-i ${TYPE_MAP[input.type]}:${input.key}=${basename}`;
+        })
+        .join(' ');
+    console.debug(`Shaka arguments: ${shakaArgs}`);
+    const shakaJobId = job.externalId.replace(/-/g, '');
+    const shakaServiceAccessToken = await ctx.getServiceAccessToken(
+      'eyevinn-shaka-packager-s3'
+    );
+    const shakaJob = await createJob(
+      ctx,
+      'eyevinn-shaka-packager-s3',
+      shakaServiceAccessToken,
+      {
+        name: shakaJobId,
+        cmdLineArgs: shakaArgs,
+        awsAccessKeyId: opts.s3AccessKeyId,
+        awsSecretAccessKey: opts.s3SecretAccessKey,
+        s3EndpointUrl: opts.s3EndpointUrl
+      }
+    );
+    console.debug(`Created Shaka job: ${JSON.stringify(shakaJob)}`);
+  };
+
   setupListener(
     opts.inputBucket,
     new URL(opts.s3EndpointUrl),
@@ -50,4 +110,12 @@ export default (opts: OrchestratorOptions) => {
     opts.s3SecretAccessKey,
     handleCreateNotification
   );
+  opts.api.register(encoreCallbackApi, {
+    onCallback: (jobProgress) => {
+      console.debug(
+        `Received callback from Encore for job ${JSON.stringify(jobProgress)}`
+      );
+    },
+    onSuccess: handleEncoreSuccess
+  });
 };

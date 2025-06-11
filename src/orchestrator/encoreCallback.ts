@@ -30,9 +30,6 @@ export const encoreCallbackApi: FastifyPluginCallback<EncoreCallbackOptions> = (
       }
     },
     async (req, reply) => {
-      console.log(
-        `Received callback from Encore for job ${JSON.stringify(req.body)}`
-      );
       opts.onCallback?.(req.body);
       if (req.body.status.toUpperCase() === 'SUCCESSFUL') {
         opts.onSuccess?.(req.body);
