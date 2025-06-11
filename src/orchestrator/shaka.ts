@@ -4,3 +4,7 @@ export type Input = {
   filename: string;
   hlsName?: string;
 };
+
+export type ShakaJob = {
+  name: string;
+};
