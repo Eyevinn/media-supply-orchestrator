@@ -1,7 +1,7 @@
 {
-  "name": "@eyevinn/typescript-nodejs",
+  "name": "media-supply-orchestrator",
   "version": "1.0.0",
-  "description": "The default typescript-nodejs template for eyevinn projects",
+  "description": "Media Supply Chain Orchestrator for open web service in Eyevinn Open Source Cloud",
   "scripts": {
     "test": "jest",
     "prepare": "husky install",
@@ -9,7 +9,8 @@
     "pretty": "prettier --check --ignore-unknown .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "nodemon",
-    "start": "ts-node -T src/server.ts"
+    "start": "ts-node -T src/server.ts",
+    "postversion": "git push && git push --tags"
   },
   "license": "MIT",
   "engines": {
