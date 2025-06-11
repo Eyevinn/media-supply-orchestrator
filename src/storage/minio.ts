@@ -74,3 +74,51 @@ export async function removeDir(
     throw error;
   }
 }
+
+export async function readTextFile(
+  url: string,
+  endpoint: URL,
+  accessKeyId: string,
+  secretAccessKey: string
+): Promise<string> {
+  const client = new Minio.Client({
+    endPoint: endpoint.hostname,
+    accessKey: accessKeyId,
+    secretKey: secretAccessKey,
+    useSSL: endpoint.protocol === 'https:'
+  });
+  const bucketName = new URL(url).hostname;
+  const filePath = new URL(url).pathname.slice(1); // Remove leading slash
+
+  const stream = await client.getObject(bucketName, filePath);
+  const chunks: Buffer[] = [];
+
+  return new Promise((resolve, reject) => {
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    stream.on('error', reject);
+  });
+}
+
+export async function fileExists(
+  url: string,
+  endpoint: URL,
+  accessKeyId: string,
+  secretAccessKey: string
+): Promise<boolean> {
+  const client = new Minio.Client({
+    endPoint: endpoint.hostname,
+    accessKey: accessKeyId,
+    secretKey: secretAccessKey,
+    useSSL: endpoint.protocol === 'https:'
+  });
+
+  try {
+    const bucketName = new URL(url).hostname;
+    const filePath = new URL(url).pathname.slice(1); // Remove leading slash
+    await client.statObject(bucketName, filePath);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
