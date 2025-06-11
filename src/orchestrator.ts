@@ -1,4 +1,4 @@
-import { Context, createJob } from '@osaas/client-core';
+import { Context, createJob, getJob } from '@osaas/client-core';
 import { setupListener } from './storage/minio';
 import { createUniqueSlug } from './util';
 import { getTranscodeJob, transcode } from '@osaas/client-transcode';
@@ -10,6 +10,7 @@ import {
   parseInputsFromEncoreJob
 } from './orchestrator/encore';
 import { WorkOrderManager } from './orchestrator/workorder';
+import { ShakaJob } from './orchestrator/shaka';
 
 export interface OrchestratorOptions {
   publicBaseUrl: string;
@@ -30,9 +31,7 @@ export default (opts: OrchestratorOptions) => {
   const timer = setInterval(async () => {
     const openWorkOrders = await workOrderManager.getOpenWorkOrders();
     for (const workOrder of openWorkOrders) {
-      console.debug(
-        `Open work order found: ${workOrder.id} - ${workOrder.createdAt}`
-      );
+      console.debug(`Open work order found: ${workOrder.id}`);
       if (workOrder.tasks.every((task) => task.status === 'COMPLETED')) {
         console.debug(`All tasks done for work order ${workOrder.id}`);
         await workOrderManager.updateWorkOrder(workOrder.id, 'CLOSED');
@@ -77,7 +76,7 @@ export default (opts: OrchestratorOptions) => {
                 workOrder.id,
                 'ABR_TRANSCODE'
               );
-              const job = workOrderTask?.taskPayload;
+              const job = (workOrderTask?.taskPayload as EncoreJob) || null;
               if (!job) {
                 console.error(
                   `No ABR_TRANSCODE job found for work order ${workOrder.id}`
@@ -128,9 +127,34 @@ export default (opts: OrchestratorOptions) => {
                   s3EndpointUrl: opts.s3EndpointUrl
                 }
               );
-              console.debug(`Created Shaka job: ${JSON.stringify(shakaJob)}`);
+              task.taskPayload = shakaJob;
               // Close the task until we have implemented something to track the Shaka job status
-              task.status = 'COMPLETED';
+              task.status = 'IN_PROGRESS';
+            }
+          } else if (task.status === 'IN_PROGRESS') {
+            if (task.type === 'VOD_PACKAGE') {
+              const shakaTaskPayload = task.taskPayload as ShakaJob;
+              const shakaServiceAccessToken = await ctx.getServiceAccessToken(
+                'eyevinn-shaka-packager-s3'
+              );
+              const shakaJob = await getJob(
+                ctx,
+                'eyevinn-shaka-packager-s3',
+                shakaTaskPayload.name,
+                shakaServiceAccessToken
+              );
+              console.debug(`Shaka job status: ${shakaJob.status}`);
+              if (
+                shakaJob.status === 'Complete' ||
+                shakaJob.status === 'SuccessCriteriaMet'
+              ) {
+                task.status = 'COMPLETED';
+              } else if (shakaJob.status === 'Failed') {
+                task.status = 'FAILED';
+                console.error(
+                  `Shaka job ${shakaTaskPayload.name} failed: ${shakaJob.error}`
+                );
+              }
             }
           }
         }

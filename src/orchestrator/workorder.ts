@@ -1,4 +1,5 @@
 import { EncoreJob } from './encore';
+import { ShakaJob } from './shaka';
 
 export type WorkOrderStatus = 'OPEN' | 'CLOSED';
 
@@ -8,7 +9,7 @@ export type WorkOrderTaskStatus =
   | 'IN_PROGRESS'
   | 'COMPLETED'
   | 'FAILED';
-export type WorkOrderTaskPayload = EncoreJob;
+export type WorkOrderTaskPayload = EncoreJob | ShakaJob;
 
 export interface WorkOrderTask {
   type: WorkOrderTaskType;
