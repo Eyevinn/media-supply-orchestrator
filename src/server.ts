@@ -31,6 +31,10 @@ if (!process.env.ENCORE_URL) {
   throw new Error('Please set ENCORE_URL environment variable');
 }
 
+if (!process.env.SUBTITLE_GENERATOR_URL) {
+  throw new Error('Please set SUBTITLE_GENERATOR_URL environment variable');
+}
+
 if (!process.env.PUBLIC_BASE_URL && !process.env.OSC_HOSTNAME) {
   throw new Error(
     'Please set either PUBLIC_BASE_URL or OSC_HOSTNAME environment variable'
@@ -45,6 +49,7 @@ orchestrator({
   abrsubsBucket: ABRSUBS_BUCKET,
   outputBucket: OUTPUT_BUCKET,
   encoreUrl: process.env.ENCORE_URL,
+  subtitleGeneratorUrl: process.env.SUBTITLE_GENERATOR_URL,
   s3EndpointUrl: process.env.S3_ENDPOINT_URL,
   s3AccessKeyId: process.env.S3_ACCESS_KEY_ID,
   s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY,

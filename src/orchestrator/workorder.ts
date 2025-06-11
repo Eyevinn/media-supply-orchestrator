@@ -44,7 +44,12 @@ export class WorkOrderManager {
         },
         {
           type: 'VOD_PACKAGE',
-          dependsOn: ['ABR_TRANSCODE'],
+          dependsOn: ['ABR_TRANSCODE', 'TRANSCRIBE'],
+          status: 'PENDING'
+        },
+        {
+          type: 'TRANSCRIBE',
+          dependsOn: [],
           status: 'PENDING'
         }
       ],

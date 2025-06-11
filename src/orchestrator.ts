@@ -3,15 +3,16 @@ import { setupListener } from './storage/minio';
 import { createUniqueSlug } from './util';
 import { getTranscodeJob } from '@osaas/client-transcode';
 import { FastifyInstance } from 'fastify';
-import { encoreCallbackApi } from './orchestrator/encoreCallback';
+import { encoreCallbackApi } from './orchestrator/callbacks/encore';
 import { EncoreJob } from './orchestrator/encore';
 import { WorkOrderManager } from './orchestrator/workorder';
-import { ShakaJob } from './orchestrator/shaka';
 import { startAbrTranscodeTask } from './orchestrator/tasks/abr_transcode';
 import {
   startVodPackageTask,
   updateVodPackageTask
 } from './orchestrator/tasks/vod_package';
+import { startTranscribeTask } from './orchestrator/tasks/transcribe';
+import { transcribeCallbackApi } from './orchestrator/callbacks/transcribe';
 
 export interface OrchestratorOptions {
   publicBaseUrl: string;
@@ -19,6 +20,7 @@ export interface OrchestratorOptions {
   abrsubsBucket: string;
   outputBucket: string;
   encoreUrl: string;
+  subtitleGeneratorUrl: string;
   s3EndpointUrl: string;
   s3AccessKeyId: string;
   s3SecretAccessKey: string;
@@ -51,6 +53,8 @@ export default (opts: OrchestratorOptions) => {
                 await startAbrTranscodeTask(ctx, task, workOrder, opts);
               } else if (task.type === 'VOD_PACKAGE') {
                 await startVodPackageTask(ctx, task, workOrder, opts);
+              } else if (task.type === 'TRANSCRIBE') {
+                await startTranscribeTask(ctx, task, workOrder, opts);
               }
             } else if (task.status === 'IN_PROGRESS') {
               if (task.type === 'VOD_PACKAGE') {
@@ -99,6 +103,16 @@ export default (opts: OrchestratorOptions) => {
     );
   };
 
+  const handleTranscribeSuccess = async (jobProgress: any): Promise<void> => {
+    console.debug(`Transcribe job successful: ${JSON.stringify(jobProgress)}`);
+    await workOrderManager.updateWorkOrderTask(
+      jobProgress.externalId,
+      'TRANSCRIBE',
+      'COMPLETED',
+      jobProgress
+    );
+  };
+
   setupListener(
     opts.inputBucket,
     new URL(opts.s3EndpointUrl),
@@ -113,5 +127,15 @@ export default (opts: OrchestratorOptions) => {
       );
     },
     onSuccess: handleEncoreSuccess
+  });
+  opts.api.register(transcribeCallbackApi, {
+    onCallback: (jobProgress) => {
+      console.debug(
+        `Received callback from Transcribe for job ${JSON.stringify(
+          jobProgress
+        )}`
+      );
+    },
+    onSuccess: handleTranscribeSuccess
   });
 };

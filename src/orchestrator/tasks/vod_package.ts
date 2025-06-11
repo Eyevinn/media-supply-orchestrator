@@ -26,6 +26,14 @@ export async function startVodPackageTask(
     job as EncoreJob,
     DEFAULT_STREAM_KEY_TEMPLATES
   );
+  // add inputs for subtitles if they exist
+  if (workOrder.tasks.find((task) => task.type === 'TRANSCRIBE')) {
+    inputs.push({
+      type: 'text',
+      key: 'en',
+      filename: `s3://${opts.abrsubsBucket}/${job.externalId}/${job.externalId}_en.vtt`
+    });
+  }
   console.debug(inputs);
   const shakaArgs =
     `-s s3://${opts.abrsubsBucket}/${job.externalId} -d s3://${opts.outputBucket}/${job.externalId}/ ` +
