@@ -32,6 +32,12 @@ We will setup and use the following open web services. Make sure you have activa
 
 For creation of the instances we will use the Open Source Cloud CLI in this example. If you don't want to use the CLI you can use the Open Source Cloud web console instead.
 
+For deployment of this orchestrator in Open Source Cloud we need additional three services:
+
+- [Web Runner](https://docs.osaas.io/osaas.wiki/Service%3A-Web-Runner.html)
+- Applicaton Config Service
+- [Valkey](https://docs.osaas.io/osaas.wiki/Service%3A-Valkey.html) key value store
+
 ### Store OSC Access Token in your environment
 
 Obtain your OSC Access Token (your personal access token) from the web console in Settings/API page. Copy this value to the clipboard and save it in an environment variable called `OSC_ACCESS_TOKEN`.
@@ -122,9 +128,70 @@ Navigate to the [Shaka Packager service](https://app.osaas.io/dashboard/service/
 
 - `miniopwd` - `<minio-root-password>`
 
-### Run the Media Supply Chain Orchestrator
+### Deploy this Media Supply Chain Orchestrator
 
-Now we can start the Media Supply Chain orchestrator that will automate this supply chain process. Start by storing some environment variables pointing to the service instances we created above.
+Now we can deploy this Media Supply Chain orchestrator that will automate this supply chain process.
+
+Create an Application Config Service for storing the orchestrator configuration. Start by creating a Valkey instance to be used by the config service.
+
+```bash
+% npx -y @osaas/cli db create valkey mediasupply
+redis://<valkey-ip>:<valkey-port>
+```
+
+Then create the config service instance
+
+```bash
+% npx -y @osaas/cli create eyevinn-app-config-svc mediasupply -o RedisUrl="redis://<valkey-ip>:<valkey-port>"
+Instance created:
+{
+  name: 'mediasupply',
+  url: '<app-config-url>',
+  ...
+}
+```
+
+Navigate to the `<app-config-url>` and create the following configuration variables.
+
+![Config example](./config-example.png)
+
+```
+S3_ACCESS_KEY_ID=root
+S3_SECRET_ACCESS_KEY="{{secrets.miniopwd}}"
+S3_ENDPOINT_URL=<minio-server-url>
+ENCORE_URL=<svtencore-url>
+SUBTITLE_GENERATOR_URL=<subtitle-generator-url>
+```
+
+For deployment of this repository you need to first create a GitHub personal access token. Follow the instructions in this [guide](https://docs.osaas.io/osaas.wiki/Service%3A-Web-Runner.html) to create it.
+
+Navigate to the [Web Runner service](https://app.osaas.io/dashboard/service/eyevinn-web-runner) in Open Source Cloud web console and create a service secret `ghtoken` to store the GitHub personal access token and another service secret `osctoken` for your OSC personal access token.
+
+```bash
+% npx -y @osaas/cli create eyevinn-web-runner mediasupply \
+  -o GitHubUrl=https://github.com/Eyevinn/media-supply-orchestrator \
+  -o GitHubToken="{{secrets.ghtoken}}" \
+  -o OscAccessToken="{{secrets.osctoken}}" \
+  -o ConfigService=mediasupply
+Instance created:
+{
+  name: 'mediasupply',
+  url: 'https://eyevinnlab-mediasupply.eyevinn-web-runner.auto.prod.osaas.io',
+  ...
+}
+```
+
+Now the media supply chain orchestrator is running and listening on events on the input bucket.
+
+Download the example file [VINN.mp4](https://testcontent.eyevinn.technology/mp4/VINN.mp4) and upload it to the input bucket to try this out.
+
+```bash
+% mc put VINN.mp4 mediasupply/input/
+```
+
+## Development
+
+Setup the open web services as described above and create the following environment variables pointing to the Open Source Cloud resources created.
 
 ```bash
 % export OSC_ACCESS_TOKEN=<personal-access-token>
@@ -135,29 +202,31 @@ Now we can start the Media Supply Chain orchestrator that will automate this sup
 % export SUBTITLE_GENERATOR_URL=<subtitle-generator-url>
 ```
 
-For the webhook and callbacks we need to configure the URL where this orchestrator can be reached.
+For local development you need to use a tool like [ngrok](https://dashboard.ngrok.com/get-started/setup/macos) to create a tunnel to your local computer for the callbacks. 
+
+Then install NodeJS dependencies.
 
 ```bash
-% export PUBLIC_BASE_URL=<media-orchestrator-public-base-url>
+% npm install
 ```
 
-For running this orchestrator on your local computer you need to use a tool like [ngrok](https://dashboard.ngrok.com/get-started/setup/macos) to create a tunnel to your local computer.
+Create a tunnel using ngrok.
 
 ```bash
 % ngrok http http://localhost:8000
 ```
 
-Copy the forward URL and set that as `PUBLIC_BASE_URL` environment variable.
+Copy the forward URL returned by ngrok and set that as `PUBLIC_BASE_URL` environment variable.
+
+```bash
+% export PUBLIC_BASE_URL=<media-orchestrator-public-base-url>
+```
 
 Then start the orchestrator.
 
-```
+```bash
 % npm start
 ```
-
-## Development
-
-<!--Add clear instructions on how to start development of the project here -->
 
 ## Contributing
 
