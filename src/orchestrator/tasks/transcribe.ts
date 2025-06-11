@@ -1,6 +1,7 @@
 import { Context } from '@osaas/client-core';
 import { WorkOrder, WorkOrderTask } from '../workorder';
 import { OrchestratorOptions } from '../../orchestrator';
+import { fileExists, readTextFile } from '../../storage/minio';
 
 export async function startTranscribeTask(
   ctx: Context,
@@ -8,6 +9,28 @@ export async function startTranscribeTask(
   workOrder: WorkOrder,
   opts: OrchestratorOptions
 ) {
+  const sourceWithoutExtension = workOrder.source
+    .toString()
+    .replace(/\.[^/.]+$/, '');
+  let prompt = undefined;
+  if (
+    await fileExists(
+      `${sourceWithoutExtension}.txt`,
+      new URL(opts.s3EndpointUrl),
+      opts.s3AccessKeyId,
+      opts.s3SecretAccessKey
+    )
+  ) {
+    prompt = await readTextFile(
+      `${sourceWithoutExtension}.txt`,
+      new URL(opts.s3EndpointUrl),
+      opts.s3AccessKeyId,
+      opts.s3SecretAccessKey
+    );
+    console.log(
+      `[${workOrder.id}]: Using prompt from ${sourceWithoutExtension}.txt`
+    );
+  }
   const autoSubtitleAccessToken = await ctx.getServiceAccessToken(
     'eyevinn-auto-subtitles'
   );
@@ -29,6 +52,7 @@ export async function startTranscribeTask(
         format: 'vtt',
         externalId: workOrder.id,
         bucket: opts.abrsubsBucket,
+        prompt: prompt,
         key: `${workOrder.id}/${workOrder.id}_en`
       })
     }
