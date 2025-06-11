@@ -202,7 +202,7 @@ Setup the open web services as described above and create the following environm
 % export SUBTITLE_GENERATOR_URL=<subtitle-generator-url>
 ```
 
-For local development you need to use a tool like [ngrok](https://dashboard.ngrok.com/get-started/setup/macos) to create a tunnel to your local computer for the callbacks. 
+For local development you need to use a tool like [ngrok](https://dashboard.ngrok.com/get-started/setup/macos) to create a tunnel to your local computer for the callbacks.
 
 Then install NodeJS dependencies.
 
