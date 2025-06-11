@@ -1,16 +1,18 @@
-import { Context, createJob, getJob } from '@osaas/client-core';
+import { Context } from '@osaas/client-core';
 import { setupListener } from './storage/minio';
 import { createUniqueSlug } from './util';
-import { getTranscodeJob, transcode } from '@osaas/client-transcode';
+import { getTranscodeJob } from '@osaas/client-transcode';
 import { FastifyInstance } from 'fastify';
-import { encoreCallbackApi } from './orchestrator/encoreCallback';
-import {
-  DEFAULT_STREAM_KEY_TEMPLATES,
-  EncoreJob,
-  parseInputsFromEncoreJob
-} from './orchestrator/encore';
+import { encoreCallbackApi } from './orchestrator/callbacks/encore';
+import { EncoreJob } from './orchestrator/encore';
 import { WorkOrderManager } from './orchestrator/workorder';
-import { ShakaJob } from './orchestrator/shaka';
+import { startAbrTranscodeTask } from './orchestrator/tasks/abr_transcode';
+import {
+  startVodPackageTask,
+  updateVodPackageTask
+} from './orchestrator/tasks/vod_package';
+import { startTranscribeTask } from './orchestrator/tasks/transcribe';
+import { transcribeCallbackApi } from './orchestrator/callbacks/transcribe';
 
 export interface OrchestratorOptions {
   publicBaseUrl: string;
@@ -18,6 +20,7 @@ export interface OrchestratorOptions {
   abrsubsBucket: string;
   outputBucket: string;
   encoreUrl: string;
+  subtitleGeneratorUrl: string;
   s3EndpointUrl: string;
   s3AccessKeyId: string;
   s3SecretAccessKey: string;
@@ -31,131 +34,38 @@ export default (opts: OrchestratorOptions) => {
   const timer = setInterval(async () => {
     const openWorkOrders = await workOrderManager.getOpenWorkOrders();
     for (const workOrder of openWorkOrders) {
-      console.debug(`Open work order found: ${workOrder.id}`);
       if (workOrder.tasks.every((task) => task.status === 'COMPLETED')) {
-        console.debug(`All tasks done for work order ${workOrder.id}`);
+        console.log(`[${workOrder.id}]: All tasks done for work order`);
         await workOrderManager.updateWorkOrder(workOrder.id, 'CLOSED');
       } else {
         for (const task of workOrder.tasks) {
-          if (
-            task.status === 'PENDING' &&
-            task.dependsOn.every(
-              (t) =>
-                workOrder.tasks.find((wt) => wt.type === t)?.status ===
-                'COMPLETED'
-            )
-          ) {
-            console.debug(
-              `Starting task ${task.type} for work order ${workOrder.id}`
+          try {
+            if (
+              task.status === 'PENDING' &&
+              task.dependsOn.every(
+                (t) =>
+                  workOrder.tasks.find((wt) => wt.type === t)?.status ===
+                  'COMPLETED'
+              )
+            ) {
+              console.log(`[${workOrder.id}]: Starting task ${task.type}`);
+              if (task.type === 'ABR_TRANSCODE') {
+                await startAbrTranscodeTask(ctx, task, workOrder, opts);
+              } else if (task.type === 'VOD_PACKAGE') {
+                await startVodPackageTask(ctx, task, workOrder, opts);
+              } else if (task.type === 'TRANSCRIBE') {
+                await startTranscribeTask(ctx, task, workOrder, opts);
+              }
+            } else if (task.status === 'IN_PROGRESS') {
+              if (task.type === 'VOD_PACKAGE') {
+                await updateVodPackageTask(ctx, task, workOrder, opts);
+              }
+            }
+          } catch (error) {
+            console.error(
+              `[${workOrder.id}]: Error processing task ${task.type} for work order: `,
+              error
             );
-            if (task.type === 'ABR_TRANSCODE') {
-              const encoreServiceAccessToken = await ctx.getServiceAccessToken(
-                'encore'
-              );
-              const job = await transcode(
-                ctx,
-                {
-                  encoreInstanceName: 'mediasupply',
-                  profile: 'program',
-                  callBackUrl: new URL('/encoreCallback', opts.publicBaseUrl),
-                  externalId: workOrder.id,
-                  inputUrl: workOrder.source,
-                  outputUrl: new URL(
-                    `s3://${opts.abrsubsBucket}/${workOrder.id}/`
-                  )
-                },
-                {
-                  endpointUrl: new URL(opts.encoreUrl),
-                  bearerToken: encoreServiceAccessToken
-                }
-              );
-              console.debug(job);
-              task.status = 'IN_PROGRESS';
-            } else if (task.type === 'VOD_PACKAGE') {
-              const workOrderTask = await workOrderManager.getWorkOrderTask(
-                workOrder.id,
-                'ABR_TRANSCODE'
-              );
-              const job = (workOrderTask?.taskPayload as EncoreJob) || null;
-              if (!job) {
-                console.error(
-                  `No ABR_TRANSCODE job found for work order ${workOrder.id}`
-                );
-                continue;
-              }
-              const inputs = parseInputsFromEncoreJob(
-                job as EncoreJob,
-                DEFAULT_STREAM_KEY_TEMPLATES
-              );
-              console.debug(inputs);
-              const shakaArgs =
-                `-s s3://${opts.abrsubsBucket}/${job.externalId} -d s3://${opts.outputBucket}/${job.externalId}/ ` +
-                inputs
-                  .map((input) => {
-                    const TYPE_MAP: Record<string, string> = {
-                      video: 'v',
-                      audio: 'a',
-                      text: 't'
-                    };
-                    const basename = new URL(input.filename).pathname
-                      .split('/')
-                      .pop();
-                    if (!basename) {
-                      throw new Error(
-                        `Could not extract basename from ${input.filename}`
-                      );
-                    }
-                    return `-i ${TYPE_MAP[input.type]}:${
-                      input.key
-                    }=${basename}`;
-                  })
-                  .join(' ');
-              console.debug(`Shaka arguments: ${shakaArgs}`);
-              const shakaJobId = job.externalId!.replace(/-/g, '');
-              const shakaServiceAccessToken = await ctx.getServiceAccessToken(
-                'eyevinn-shaka-packager-s3'
-              );
-              const shakaJob = await createJob(
-                ctx,
-                'eyevinn-shaka-packager-s3',
-                shakaServiceAccessToken,
-                {
-                  name: shakaJobId,
-                  cmdLineArgs: shakaArgs,
-                  awsAccessKeyId: opts.s3AccessKeyId,
-                  awsSecretAccessKey: opts.s3SecretAccessKey,
-                  s3EndpointUrl: opts.s3EndpointUrl
-                }
-              );
-              task.taskPayload = shakaJob;
-              // Close the task until we have implemented something to track the Shaka job status
-              task.status = 'IN_PROGRESS';
-            }
-          } else if (task.status === 'IN_PROGRESS') {
-            if (task.type === 'VOD_PACKAGE') {
-              const shakaTaskPayload = task.taskPayload as ShakaJob;
-              const shakaServiceAccessToken = await ctx.getServiceAccessToken(
-                'eyevinn-shaka-packager-s3'
-              );
-              const shakaJob = await getJob(
-                ctx,
-                'eyevinn-shaka-packager-s3',
-                shakaTaskPayload.name,
-                shakaServiceAccessToken
-              );
-              console.debug(`Shaka job status: ${shakaJob.status}`);
-              if (
-                shakaJob.status === 'Complete' ||
-                shakaJob.status === 'SuccessCriteriaMet'
-              ) {
-                task.status = 'COMPLETED';
-              } else if (shakaJob.status === 'Failed') {
-                task.status = 'FAILED';
-                console.error(
-                  `Shaka job ${shakaTaskPayload.name} failed: ${shakaJob.error}`
-                );
-              }
-            }
           }
         }
       }
@@ -193,6 +103,16 @@ export default (opts: OrchestratorOptions) => {
     );
   };
 
+  const handleTranscribeSuccess = async (jobProgress: any): Promise<void> => {
+    console.debug(`Transcribe job successful: ${JSON.stringify(jobProgress)}`);
+    await workOrderManager.updateWorkOrderTask(
+      jobProgress.externalId,
+      'TRANSCRIBE',
+      'COMPLETED',
+      jobProgress
+    );
+  };
+
   setupListener(
     opts.inputBucket,
     new URL(opts.s3EndpointUrl),
@@ -207,5 +127,15 @@ export default (opts: OrchestratorOptions) => {
       );
     },
     onSuccess: handleEncoreSuccess
+  });
+  opts.api.register(transcribeCallbackApi, {
+    onCallback: (jobProgress) => {
+      console.debug(
+        `Received callback from Transcribe for job ${JSON.stringify(
+          jobProgress
+        )}`
+      );
+    },
+    onSuccess: handleTranscribeSuccess
   });
 };
