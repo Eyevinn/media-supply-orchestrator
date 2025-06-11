@@ -31,12 +31,16 @@ if (!process.env.ENCORE_URL) {
   throw new Error('Please set ENCORE_URL environment variable');
 }
 
-if (!process.env.PUBLIC_BASE_URL) {
-  throw new Error('Please set PUBLIC_BASE_URL environment variable');
+if (!process.env.PUBLIC_BASE_URL && !process.env.OSC_HOSTNAME) {
+  throw new Error(
+    'Please set either PUBLIC_BASE_URL or OSC_HOSTNAME environment variable'
+  );
 }
+const PUBLIC_BASE_URL =
+  process.env.PUBLIC_BASE_URL || `https://${process.env.OSC_HOSTNAME}`;
 
 orchestrator({
-  publicBaseUrl: process.env.PUBLIC_BASE_URL,
+  publicBaseUrl: PUBLIC_BASE_URL,
   inputBucket: INPUT_BUCKET,
   abrsubsBucket: ABRSUBS_BUCKET,
   encoreUrl: process.env.ENCORE_URL,
