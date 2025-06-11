@@ -3,7 +3,11 @@ import { ShakaJob } from './shaka';
 
 export type WorkOrderStatus = 'OPEN' | 'CLOSED';
 
-export type WorkOrderTaskType = 'ABR_TRANSCODE' | 'VOD_PACKAGE' | 'TRANSCRIBE';
+export type WorkOrderTaskType =
+  | 'ABR_TRANSCODE'
+  | 'VOD_PACKAGE'
+  | 'TRANSCRIBE'
+  | 'CLEANUP';
 export type WorkOrderTaskStatus =
   | 'PENDING'
   | 'IN_PROGRESS'
@@ -27,32 +31,43 @@ export interface WorkOrder {
   updatedAt: Date;
 }
 
+export const VOD_PACKAGING_TASKS: WorkOrderTask[] = [
+  {
+    type: 'ABR_TRANSCODE',
+    dependsOn: [],
+    status: 'PENDING'
+  },
+  {
+    type: 'VOD_PACKAGE',
+    dependsOn: ['ABR_TRANSCODE', 'TRANSCRIBE'],
+    status: 'PENDING'
+  },
+  {
+    type: 'TRANSCRIBE',
+    dependsOn: [],
+    status: 'PENDING'
+  },
+  {
+    type: 'CLEANUP',
+    dependsOn: ['VOD_PACKAGE'],
+    status: 'PENDING'
+  }
+];
+
 export class WorkOrderManager {
   private workOrders: Map<string, WorkOrder> = new Map();
 
-  async createWorkOrder(id: string, source: URL): Promise<WorkOrder> {
+  async createWorkOrder(
+    id: string,
+    source: URL,
+    tasks?: WorkOrderTask[]
+  ): Promise<WorkOrder> {
     // TODO: create work order depending on expected outputs
     const workOrder: WorkOrder = {
       id,
       source,
       status: 'OPEN',
-      tasks: [
-        {
-          type: 'ABR_TRANSCODE',
-          dependsOn: [],
-          status: 'PENDING'
-        },
-        {
-          type: 'VOD_PACKAGE',
-          dependsOn: ['ABR_TRANSCODE', 'TRANSCRIBE'],
-          status: 'PENDING'
-        },
-        {
-          type: 'TRANSCRIBE',
-          dependsOn: [],
-          status: 'PENDING'
-        }
-      ],
+      tasks: tasks || VOD_PACKAGING_TASKS,
       createdAt: new Date(),
       updatedAt: new Date()
     };
