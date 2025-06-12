@@ -29,10 +29,13 @@ export interface OrchestratorOptions {
   s3AccessKeyId: string;
   s3SecretAccessKey: string;
   api: FastifyInstance;
+  redisUrl?: string;
 }
 
 export default (opts: OrchestratorOptions) => {
-  const workOrderManager = new WorkOrderManager();
+  const workOrderManager = new WorkOrderManager({
+    redisUrl: opts.redisUrl ? new URL(opts.redisUrl) : undefined
+  });
   const ctx = new Context();
 
   const timer = setInterval(async () => {
@@ -54,23 +57,54 @@ export default (opts: OrchestratorOptions) => {
             ) {
               console.log(`[${workOrder.id}]: Starting task ${task.type}`);
               if (task.type === 'ABR_TRANSCODE') {
-                await startAbrTranscodeTask(ctx, task, workOrder, opts);
+                await startAbrTranscodeTask(
+                  ctx,
+                  task,
+                  workOrder,
+                  workOrderManager,
+                  opts
+                );
               } else if (task.type === 'VOD_PACKAGE') {
-                await startVodPackageTask(ctx, task, workOrder, opts);
+                await startVodPackageTask(
+                  ctx,
+                  task,
+                  workOrder,
+                  workOrderManager,
+                  opts
+                );
               } else if (task.type === 'TRANSCRIBE') {
-                await startTranscribeTask(ctx, task, workOrder, opts);
+                await startTranscribeTask(
+                  ctx,
+                  task,
+                  workOrder,
+                  workOrderManager,
+                  opts
+                );
               } else if (task.type === 'CLEANUP') {
-                await startCleanupTask(ctx, task, workOrder, opts);
+                await startCleanupTask(
+                  ctx,
+                  task,
+                  workOrder,
+                  workOrderManager,
+                  opts
+                );
               }
             } else if (task.status === 'IN_PROGRESS') {
               if (task.type === 'VOD_PACKAGE') {
-                await updateVodPackageTask(ctx, task, workOrder, opts);
+                await updateVodPackageTask(
+                  ctx,
+                  task,
+                  workOrder,
+                  workOrderManager,
+                  opts
+                );
               }
             }
           } catch (error) {
             console.error(
               `[${workOrder.id}]: Error processing task ${task.type} for work order: `,
-              error
+              error,
+              workOrder
             );
           }
         }

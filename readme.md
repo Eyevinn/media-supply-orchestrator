@@ -163,6 +163,17 @@ ENCORE_URL=<svtencore-url>
 SUBTITLE_GENERATOR_URL=<subtitle-generator-url>
 ```
 
+To ensure that the orchestrator maintains state during a restart you can provide a URL to a Redis or Valkey store. Create the Valkey for this purpose first.
+
+```bash
+% npx -y @osaas/cli db create valkey orchestrator
+redis://<orchestrator-valkey-ip>:<orchestrator-valkey-port>
+```
+
+```
+REDIS_URL=redis://<orchestrator-valkey-ip>:<orchestrator-valkey-port>
+```
+
 For deployment of this repository you need to first create a GitHub personal access token. Follow the instructions in this [guide](https://docs.osaas.io/osaas.wiki/Service%3A-Web-Runner.html) to create it.
 
 Navigate to the [Web Runner service](https://app.osaas.io/dashboard/service/eyevinn-web-runner) in Open Source Cloud web console and create a service secret `ghtoken` to store the GitHub personal access token and another service secret `osctoken` for your OSC personal access token.

@@ -4,7 +4,7 @@ import {
   EncoreJob,
   parseInputsFromEncoreJob
 } from '../encore';
-import { WorkOrder, WorkOrderTask } from '../workorder';
+import { WorkOrder, WorkOrderManager, WorkOrderTask } from '../workorder';
 import { OrchestratorOptions } from '../../orchestrator';
 import { ShakaJob } from '../shaka';
 
@@ -12,6 +12,7 @@ export async function startVodPackageTask(
   ctx: Context,
   task: WorkOrderTask,
   workOrder: WorkOrder,
+  workOrderManager: WorkOrderManager,
   opts: OrchestratorOptions
 ) {
   const workOrderTask = workOrder.tasks.find(
@@ -68,17 +69,33 @@ export async function startVodPackageTask(
       s3EndpointUrl: opts.s3EndpointUrl
     }
   );
-  task.taskPayload = shakaJob;
-  task.status = 'IN_PROGRESS';
+  await workOrderManager.updateWorkOrderTask(
+    workOrder.id,
+    task.type,
+    'IN_PROGRESS',
+    shakaJob as ShakaJob
+  );
 }
 
 export async function updateVodPackageTask(
   ctx: Context,
   task: WorkOrderTask,
   workOrder: WorkOrder,
+  workOrderManager: WorkOrderManager,
   opts: OrchestratorOptions
 ) {
   const shakaTaskPayload = task.taskPayload as ShakaJob;
+  if (!shakaTaskPayload) {
+    console.error(
+      `[${workOrder.id}]: No Shaka task payload found for task ${task.type}`
+    );
+    await workOrderManager.updateWorkOrderTask(
+      workOrder.id,
+      task.type,
+      'FAILED'
+    );
+    return;
+  }
   const shakaServiceAccessToken = await ctx.getServiceAccessToken(
     'eyevinn-shaka-packager-s3'
   );
@@ -99,4 +116,9 @@ export async function updateVodPackageTask(
       `[${workOrder.id}]: Shaka job ${shakaTaskPayload.name} failed: ${shakaJob.error}`
     );
   }
+  await workOrderManager.updateWorkOrderTask(
+    workOrder.id,
+    task.type,
+    task.status
+  );
 }
