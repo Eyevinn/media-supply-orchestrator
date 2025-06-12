@@ -5,10 +5,7 @@ import { getTranscodeJob } from '@osaas/client-transcode';
 import { FastifyInstance } from 'fastify';
 import { encoreCallbackApi } from './orchestrator/callbacks/encore';
 import { EncoreJob } from './orchestrator/encore';
-import {
-  VOD_PACKAGING_TASKS,
-  WorkOrderManager
-} from './orchestrator/workorder';
+import { WorkOrderManager } from './orchestrator/workorder';
 import { startAbrTranscodeTask } from './orchestrator/tasks/abr_transcode';
 import {
   startVodPackageTask,

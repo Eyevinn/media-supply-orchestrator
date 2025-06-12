@@ -36,29 +36,6 @@ export interface WorkOrderManagerOpts {
   redisUrl?: URL;
 }
 
-export const VOD_PACKAGING_TASKS: WorkOrderTask[] = [
-  {
-    type: 'ABR_TRANSCODE',
-    dependsOn: [],
-    status: 'PENDING'
-  },
-  {
-    type: 'VOD_PACKAGE',
-    dependsOn: ['ABR_TRANSCODE', 'TRANSCRIBE'],
-    status: 'PENDING'
-  },
-  {
-    type: 'TRANSCRIBE',
-    dependsOn: [],
-    status: 'PENDING'
-  },
-  {
-    type: 'CLEANUP',
-    dependsOn: ['VOD_PACKAGE'],
-    status: 'PENDING'
-  }
-];
-
 export function serializeWorkOrder(workOrder: WorkOrder): string {
   return JSON.stringify({
     ...workOrder,
@@ -104,14 +81,14 @@ export class WorkOrderManager {
   async createWorkOrder(
     id: string,
     source: URL,
-    tasks?: WorkOrderTask[]
+    tasks: WorkOrderTask[]
   ): Promise<WorkOrder> {
     await this.connect();
     const workOrder: WorkOrder = {
       id,
       source,
       status: 'OPEN',
-      tasks: tasks || VOD_PACKAGING_TASKS,
+      tasks,
       createdAt: new Date(),
       updatedAt: new Date()
     };
