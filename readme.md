@@ -170,8 +170,16 @@ To ensure that the orchestrator maintains state during a restart you can provide
 redis://<orchestrator-valkey-ip>:<orchestrator-valkey-port>
 ```
 
+Then add the following to the configuration:
+
 ```
 REDIS_URL=redis://<orchestrator-valkey-ip>:<orchestrator-valkey-port>
+```
+
+If you want to trigger a custom workflow you can provide a URL to a [workflow definition file](docs/workflow-definition.md). Add the following to the configuration.
+
+```
+WORKFLOW_DEFINITION_URL=https://raw.githubusercontent.com/Eyevinn/media-supply-orchestrator/refs/heads/main/workflows/vod-transcribe.yml
 ```
 
 For deployment of this repository you need to first create a GitHub personal access token. Follow the instructions in this [guide](https://docs.osaas.io/osaas.wiki/Service%3A-Web-Runner.html) to create it.

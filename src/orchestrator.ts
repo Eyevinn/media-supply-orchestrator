@@ -17,6 +17,7 @@ import {
 import { startTranscribeTask } from './orchestrator/tasks/transcribe';
 import { transcribeCallbackApi } from './orchestrator/callbacks/transcribe';
 import { startCleanupTask } from './orchestrator/tasks/cleanup';
+import { Workflow } from './orchestrator/workflow';
 
 export interface OrchestratorOptions {
   publicBaseUrl: string;
@@ -30,6 +31,7 @@ export interface OrchestratorOptions {
   s3SecretAccessKey: string;
   api: FastifyInstance;
   redisUrl?: string;
+  workflowDefinitionUrl: URL;
 }
 
 export default (opts: OrchestratorOptions) => {
@@ -37,6 +39,7 @@ export default (opts: OrchestratorOptions) => {
     redisUrl: opts.redisUrl ? new URL(opts.redisUrl) : undefined
   });
   const ctx = new Context();
+  const workflow = new Workflow(opts.workflowDefinitionUrl);
 
   const timer = setInterval(async () => {
     const openWorkOrders = await workOrderManager.getOpenWorkOrders();
@@ -116,42 +119,69 @@ export default (opts: OrchestratorOptions) => {
     console.log(
       `File created: s3://${record.s3.bucket.name}/${record.s3.object.key}`
     );
-    const filename =
-      record.s3.object.key.split('/').pop() || record.s3.object.key;
-    const externalId = createUniqueSlug(filename);
-    await workOrderManager.createWorkOrder(
-      externalId,
-      new URL(`s3://${record.s3.bucket.name}/${record.s3.object.key}`),
-      VOD_PACKAGING_TASKS
-    );
+    try {
+      const filename =
+        record.s3.object.key.split('/').pop() || record.s3.object.key;
+      const externalId = createUniqueSlug(filename);
+      const tasks = await workflow.getTasks();
+      await workOrderManager.createWorkOrder(
+        externalId,
+        new URL(`s3://${record.s3.bucket.name}/${record.s3.object.key}`),
+        tasks
+      );
+    } catch (error) {
+      console.error(
+        `Error creating work order for file s3://${record.s3.bucket.name}/${record.s3.object.key}: `,
+        error
+      );
+    }
   };
 
   const handleEncoreSuccess = async (jobProgress: any): Promise<void> => {
     console.debug(`Encore job successful: ${JSON.stringify(jobProgress)}`);
-    const ctx = new Context();
-    const job = (await getTranscodeJob(ctx, 'mediasupply', jobProgress.jobId, {
-      endpointUrl: new URL(opts.encoreUrl),
-      bearerToken: await ctx.getServiceAccessToken('encore')
-    })) as EncoreJob;
-    if (!job.externalId) {
-      throw new Error(`Encore job ${jobProgress.jobId} has no externalId`);
+    try {
+      const ctx = new Context();
+      const job = (await getTranscodeJob(
+        ctx,
+        'mediasupply',
+        jobProgress.jobId,
+        {
+          endpointUrl: new URL(opts.encoreUrl),
+          bearerToken: await ctx.getServiceAccessToken('encore')
+        }
+      )) as EncoreJob;
+      if (!job.externalId) {
+        throw new Error(`Encore job ${jobProgress.jobId} has no externalId`);
+      }
+      await workOrderManager.updateWorkOrderTask(
+        job.externalId,
+        'ABR_TRANSCODE',
+        'COMPLETED',
+        job
+      );
+    } catch (error) {
+      console.error(
+        `Error processing Encore job success for job ${jobProgress.jobId}: `,
+        error
+      );
     }
-    await workOrderManager.updateWorkOrderTask(
-      job.externalId,
-      'ABR_TRANSCODE',
-      'COMPLETED',
-      job
-    );
   };
 
   const handleTranscribeSuccess = async (jobProgress: any): Promise<void> => {
     console.debug(`Transcribe job successful: ${JSON.stringify(jobProgress)}`);
-    await workOrderManager.updateWorkOrderTask(
-      jobProgress.externalId,
-      'TRANSCRIBE',
-      'COMPLETED',
-      jobProgress
-    );
+    try {
+      await workOrderManager.updateWorkOrderTask(
+        jobProgress.externalId,
+        'TRANSCRIBE',
+        'COMPLETED',
+        jobProgress
+      );
+    } catch (error) {
+      console.error(
+        `Error processing Transcribe job success for job ${jobProgress.externalId}: `,
+        error
+      );
+    }
   };
 
   setupListener(
