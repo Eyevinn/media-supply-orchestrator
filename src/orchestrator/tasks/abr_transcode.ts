@@ -1,12 +1,14 @@
 import { Context } from '@osaas/client-core';
-import { WorkOrder, WorkOrderTask } from '../workorder';
+import { WorkOrder, WorkOrderManager, WorkOrderTask } from '../workorder';
 import { OrchestratorOptions } from '../../orchestrator';
 import { transcode } from '@osaas/client-transcode';
+import { EncoreJob } from '../encore';
 
 export async function startAbrTranscodeTask(
   ctx: Context,
   task: WorkOrderTask,
   workOrder: WorkOrder,
+  workOrderManager: WorkOrderManager,
   opts: OrchestratorOptions
 ) {
   const encoreServiceAccessToken = await ctx.getServiceAccessToken('encore');
@@ -25,5 +27,10 @@ export async function startAbrTranscodeTask(
       bearerToken: encoreServiceAccessToken
     }
   );
-  task.status = 'IN_PROGRESS';
+  await workOrderManager.updateWorkOrderTask(
+    workOrder.id,
+    task.type,
+    'IN_PROGRESS',
+    job as EncoreJob
+  );
 }

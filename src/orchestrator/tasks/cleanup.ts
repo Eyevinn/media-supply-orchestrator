@@ -1,5 +1,5 @@
 import { Context } from '@osaas/client-core';
-import { WorkOrder, WorkOrderTask } from '../workorder';
+import { WorkOrder, WorkOrderManager, WorkOrderTask } from '../workorder';
 import { OrchestratorOptions } from '../../orchestrator';
 import { removeDir, removeFile } from '../../storage/minio';
 
@@ -7,6 +7,7 @@ export async function startCleanupTask(
   ctx: Context,
   task: WorkOrderTask,
   workOrder: WorkOrder,
+  workOrderManager: WorkOrderManager,
   opts: OrchestratorOptions
 ) {
   // Remove source file
@@ -32,5 +33,9 @@ export async function startCleanupTask(
   console.log(
     `[${workOrder.id}]: Removed ABR transcoded files and subtitles for work order`
   );
-  task.status = 'COMPLETED';
+  await workOrderManager.updateWorkOrderTask(
+    workOrder.id,
+    task.type,
+    'COMPLETED'
+  );
 }

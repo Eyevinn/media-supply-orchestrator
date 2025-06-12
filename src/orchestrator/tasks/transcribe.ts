@@ -1,5 +1,5 @@
 import { Context } from '@osaas/client-core';
-import { WorkOrder, WorkOrderTask } from '../workorder';
+import { WorkOrder, WorkOrderManager, WorkOrderTask } from '../workorder';
 import { OrchestratorOptions } from '../../orchestrator';
 import { fileExists, readTextFile } from '../../storage/minio';
 
@@ -7,6 +7,7 @@ export async function startTranscribeTask(
   ctx: Context,
   task: WorkOrderTask,
   workOrder: WorkOrder,
+  workOrderManager: WorkOrderManager,
   opts: OrchestratorOptions
 ) {
   const sourceWithoutExtension = workOrder.source
@@ -67,4 +68,9 @@ export async function startTranscribeTask(
   const data = await response.json();
   console.log(`[${workOrder.id}]: Transcription started for work order:`, data);
   task.status = 'IN_PROGRESS';
+  await workOrderManager.updateWorkOrderTask(
+    workOrder.id,
+    task.type,
+    task.status
+  );
 }

@@ -53,6 +53,7 @@ orchestrator({
   s3EndpointUrl: process.env.S3_ENDPOINT_URL,
   s3AccessKeyId: process.env.S3_ACCESS_KEY_ID,
   s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  redisUrl: process.env.REDIS_URL,
   api: server
 });
 
