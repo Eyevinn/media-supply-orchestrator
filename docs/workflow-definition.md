@@ -35,10 +35,9 @@ steps:
 
 Supported steps are shown in the table below.
 
-| Type | Description |
-| ---- | ----------- |
+| Type            | Description                                                                         |
+| --------------- | ----------------------------------------------------------------------------------- |
 | `ABR_TRANSCODE` | Transcode source file to a set of variants with different bitrates and resolutions. |
-| `TRANSCRIBE` | From the source file transcribe and generates subtitles. |
-| `VOD_PACKAGE` | Create a VOD package for streaming. |
-| `CLEANUP` | Remove source file from input bucket and files created on temporary storage. |
-
+| `TRANSCRIBE`    | From the source file transcribe and generates subtitles.                            |
+| `VOD_PACKAGE`   | Create a VOD package for streaming.                                                 |
+| `CLEANUP`       | Remove source file from input bucket and files created on temporary storage.        |
