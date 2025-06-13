@@ -93,7 +93,7 @@ export class WorkOrderManager {
       updatedAt: new Date()
     };
     if (this.redisClient) {
-      await this.redisClient.set(id, JSON.stringify(workOrder));
+      await this.redisClient.set(id, serializeWorkOrder(workOrder));
     } else {
       this.workOrders.set(id, workOrder);
     }
