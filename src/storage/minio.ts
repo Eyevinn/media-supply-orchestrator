@@ -22,7 +22,6 @@ export async function setupListener(
   console.log('Listening for notifications');
   poller.on('notification', async (record) => {
     await onNotification(record);
-    poller.stop();
   });
 }
 
