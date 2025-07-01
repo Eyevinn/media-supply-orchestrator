@@ -1,0 +1,9 @@
+steps:
+  - type: ABR_TRANSCODE
+    dependsOn: []
+  - type: VOD_PACKAGE
+    dependsOn:
+      - ABR_TRANSCODE
+  - type: CLEANUP
+    dependsOn:
+      - VOD_PACKAGE
